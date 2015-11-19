@@ -2,7 +2,7 @@
 /* 
  * Configuration for the OAuth module.
  * 
- * $Id$
+ * $Id: module_oauth.php 2843 2011-05-20 14:34:26Z comel.ah $
  */
 
 $config = array (

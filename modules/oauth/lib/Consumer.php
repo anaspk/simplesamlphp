@@ -7,7 +7,7 @@ require_once(dirname(dirname(__FILE__)) . '/libextinc/OAuth.php');
  *
  * @author Andreas Åkre Solberg, <andreas.solberg@uninett.no>, UNINETT AS.
  * @package simpleSAMLphp
- * @version $Id$
+ * @version $Id: Consumer.php 2734 2011-02-08 13:50:51Z olavmrk $
  */
 class sspmod_oauth_Consumer {
 	

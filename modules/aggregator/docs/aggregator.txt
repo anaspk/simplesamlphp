@@ -7,7 +7,7 @@ aggregator Module
 	http://daringfireball.net/projects/markdown/syntax
 -->
 
-  * Version: `$Id$`
+  * Version: `$Id: aggregator.txt 1894 2009-10-23 10:47:27Z andreassolberg $`
   * Author: Andreas Åkre Solberg <andreas.solberg@uninett.no>, UNINETT AS
   * Package: simpleSAMLphp
 

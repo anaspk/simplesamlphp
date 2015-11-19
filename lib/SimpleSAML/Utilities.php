@@ -355,7 +355,7 @@ class SimpleSAML_Utilities {
 
 		/* We use a very strict regex to parse the timestamp. */
 		if(preg_match('/^(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)' .
-		              'T(\\d\\d):(\\d\\d):(\\d\\d)(?:\\.\\d+)?Z$/D',
+		              'T(\\d\\d):(\\d\\d):(\\d\\d)(?:\\.\\d+)?Z?$/D',
 		              $time, $matches) == 0) {
 			throw new Exception(
 				'Invalid SAML2 timestamp passed to' .

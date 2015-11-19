@@ -3,17 +3,24 @@
 /**
  * This file implements a autoloader for simpleSAMLphp. This autoloader
  * will search for files under the simpleSAMLphp directory.
+ * We have also added support for loading some selected Convo Services
+ * classes to this autoloader too.
  *
  * @author Olav Morken, UNINETT AS.
  * @package simpleSAMLphp
  * @version $Id$
  */
 
+if (!defined('LOCAL_DB_SERVICES_VERSION')) define('LOCAL_DB_SERVICES_VERSION', SERVER_VERSION);
+
+// Overridden constants based on inherited constants
+if (!defined('LOCAL_LATEST_SERVICES_PATH')) define('LOCAL_LATEST_SERVICES_PATH', realpath($_SERVER['DOCUMENT_ROOT'] . "/scrybe/amfphp1_9/services/db_services_" . LOCAL_DB_SERVICES_VERSION) . "/");
 
 /**
  * Autoload function for simpleSAMLphp.
  *
- * It will autoload all classes stored in the lib-directory.
+ * It will autoload all classes stored in the lib-directory
+ * and some whitelisted Convo classes.
  *
  * @param $className  The name of the class.
  */
@@ -39,7 +46,15 @@ function SimpleSAML_autoload($className) {
 
 		$file = SimpleSAML_Module::getModuleDir($module) . '/lib/' . str_replace('_', '/', $moduleClass) . '.php';
 	} else {
-		$file = $libDir . str_replace('_', '/', $className) . '.php';
+		$convoClasses = array(
+			'AccountLogin' => 'accounts/AccountLogin.php',
+		);
+		
+		if (array_key_exists($className, $convoClasses)) {
+			$file = LOCAL_LATEST_SERVICES_PATH . $convoClasses[$className];
+		} else {
+			$file = $libDir . str_replace('_', '/', $className) . '.php';
+		}
 	}
 
 	if(file_exists($file)) {

@@ -1,0 +1,1 @@
+place it in /etc/scrybe/

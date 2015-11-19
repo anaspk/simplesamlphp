@@ -461,7 +461,7 @@ class sspmod_saml_Message {
 	 * Build a logout response based on information in the metadata.
 	 *
 	 * @param SimpleSAML_Configuration $srcMetadata  The metadata of the sender.
-	 * @param SimpleSAML_Configuration $dstpMetadata  The metadata of the recipient.
+	 * @param SimpleSAML_Configuration $dstMetadata  The metadata of the recipient.
 	 */
 	public static function buildLogoutResponse(SimpleSAML_Configuration $srcMetadata, SimpleSAML_Configuration $dstMetadata) {
 
@@ -564,9 +564,10 @@ class sspmod_saml_Message {
 
 
 		/* Check various properties of the assertion. */
-
+        $notBeforeMargin = 60;
+        $notBeforeMargin = 300; // 5 mins
 		$notBefore = $assertion->getNotBefore();
-		if ($notBefore !== NULL && $notBefore > time() + 60) {
+		if ($notBefore !== NULL && $notBefore > time() + /*60*/ $notBeforeMargin) {
 			throw new SimpleSAML_Error_Exception('Received an assertion that is valid in the future. Check clock synchronization on IdP and SP.');
 		}
 
@@ -669,7 +670,7 @@ class sspmod_saml_Message {
 				}
 			}
 
-			if ($scd->NotBefore && $scd->NotBefore > time() + 60) {
+			if ($scd->NotBefore && $scd->NotBefore > time() + /*60*/ $notBeforeMargin) {
 				$lastError = 'NotBefore in SubjectConfirmationData is in the future: ' . $scd->NotBefore;
 				continue;
 			}

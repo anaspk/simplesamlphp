@@ -10,7 +10,19 @@ if (!array_key_exists('PATH_INFO', $_SERVER)) {
 	throw new SimpleSAML_Error_BadRequest('Missing authentication source id in logout URL');
 }
 
-$sourceId = substr($_SERVER['PATH_INFO'], 1);
+$secondSlash = strpos($_SERVER['PATH_INFO'], '/', 1);
+if ($secondSlash === FALSE)
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1);
+}
+else
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1, $secondSlash - 1);
+	global $account_id;
+	$account_id = substr($_SERVER['PATH_INFO'], $secondSlash + 1);
+}
+
+SimpleSAML_Logger::debug("saml2-logout.php -> Account ID: $account_id");
 
 $source = SimpleSAML_Auth_Source::getById($sourceId);
 if ($source === NULL) {
@@ -107,7 +119,9 @@ if ($message instanceof SAML2_LogoutResponse) {
 	if ($numLoggedOut < count($sessionIndexes)) {
 		SimpleSAML_Logger::warning('Logged out of ' . $numLoggedOut  . ' of ' . count($sessionIndexes) . ' sessions.');
 	}
-
+	
+	AccountLogin::signOutCallBackForIdps();	
+	
 	$binding->send($lr);
 } else {
 	throw new SimpleSAML_Error_BadRequest('Unknown message received on logout endpoint: ' . get_class($message));

@@ -2,7 +2,7 @@
 /*
  * @author Andreas Åkre Solberg <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
+ * @version $Id: Ruleset.php 1535 2009-06-23 08:15:13Z andreassolberg $
  */
 class sspmod_statistics_Ruleset {
 

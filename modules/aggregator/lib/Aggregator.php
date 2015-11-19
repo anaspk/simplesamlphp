@@ -5,7 +5,7 @@
  *
  * @author Andreas Åkre Solberg <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
+ * @version $Id: Aggregator.php 1963 2009-11-05 11:27:44Z olavmrk $
  */
 
 class sspmod_aggregator_Aggregator {

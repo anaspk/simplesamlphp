@@ -186,7 +186,13 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		$ar = sspmod_saml_Message::buildAuthnRequest($this->metadata, $idpMetadata);
 
-		$ar->setAssertionConsumerServiceURL(SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $this->authId));
+		$resource = 'saml/sp/saml2-acs.php/' . $this->authId;
+		
+		if (array_key_exists('sso_account_id', $_SESSION) && !empty($_SESSION['sso_account_id'])) {
+			$account_id = $_SESSION['sso_account_id'];
+			$resource .= "/{$account_id}";
+		}
+		$ar->setAssertionConsumerServiceURL(SimpleSAML_Module::getModuleURL($resource));
 
 		if (isset($state['SimpleSAML_Auth_Default.ReturnURL'])) {
 			$ar->setRelayState($state['SimpleSAML_Auth_Default.ReturnURL']);

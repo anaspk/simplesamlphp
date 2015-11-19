@@ -2,7 +2,7 @@
 /*
  * @author Andreas Åkre Solberg <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
+ * @version $Id: DateHandlerMonth.php 1514 2009-06-15 07:27:44Z andreassolberg $
  */
 class sspmod_statistics_DateHandlerMonth extends sspmod_statistics_DateHandler {
 

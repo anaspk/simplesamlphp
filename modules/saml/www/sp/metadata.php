@@ -5,7 +5,18 @@ if (!array_key_exists('PATH_INFO', $_SERVER)) {
 }
 
 $config = SimpleSAML_Configuration::getInstance();
-$sourceId = substr($_SERVER['PATH_INFO'], 1);
+$secondSlash = strpos($_SERVER['PATH_INFO'], '/', 1);
+if ($secondSlash === FALSE)
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1);
+}
+else
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1, $secondSlash - 1);
+	global $account_id;
+	$account_id = substr($_SERVER['PATH_INFO'], $secondSlash + 1);
+}
+
 $source = SimpleSAML_Auth_Source::getById($sourceId);
 if ($source === NULL) {
 	throw new SimpleSAML_Error_NotFound('Could not find authentication source with id ' . $sourceId);
@@ -19,7 +30,7 @@ $entityId = $source->getEntityId();
 $spconfig = $source->getMetadata();
 
 $metaArray20 = array(
-	'SingleLogoutService' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId),
+	'SingleLogoutService' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id")),
 );
 
 $store = SimpleSAML_Store::getInstance();
@@ -28,11 +39,11 @@ if ($store instanceof SimpleSAML_Store_SQL) {
 	$metaArray20['SingleLogoutService'] = array(
 		array(
 			'Binding' => SAML2_Const::BINDING_HTTP_REDIRECT,
-			'Location' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId),
+			'Location' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id")),
 		),
 		array(
 			'Binding' => SAML2_Const::BINDING_SOAP,
-			'Location' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId),
+			'Location' => SimpleSAML_Module::getModuleURL('saml/sp/saml2-logout.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id")),
 		),
 	);
 }
@@ -58,7 +69,7 @@ foreach ($assertionsconsumerservices as $services) {
 	switch ($services) {
 	case 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST':
 		$acsArray['Binding'] = SAML2_Const::BINDING_HTTP_POST;
-		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId);
+		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id"));
 		break;
 	case 'urn:oasis:names:tc:SAML:1.0:profiles:browser-post':
 		$acsArray['Binding'] = 'urn:oasis:names:tc:SAML:1.0:profiles:browser-post';
@@ -66,7 +77,7 @@ foreach ($assertionsconsumerservices as $services) {
 		break;
 	case 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact':
 		$acsArray['Binding'] = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact';
-		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId);
+		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id"));
 		break;
 	case 'urn:oasis:names:tc:SAML:1.0:profiles:artifact-01':
 		$acsArray['Binding'] = 'urn:oasis:names:tc:SAML:1.0:profiles:artifact-01';
@@ -74,7 +85,7 @@ foreach ($assertionsconsumerservices as $services) {
 		break;
 	case 'urn:oasis:names:tc:SAML:2.0:profiles:holder-of-key:SSO:browser':
 		$acsArray['Binding'] = 'urn:oasis:names:tc:SAML:2.0:profiles:holder-of-key:SSO:browser';
-		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId);
+		$acsArray['Location'] = SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $sourceId . (empty($account_id) ? '' : "/$account_id"));
 		$acsArray['hoksso:ProtocolBinding'] = SAML2_Const::BINDING_HTTP_REDIRECT;
 		break;
 	}
@@ -219,6 +230,7 @@ if (array_key_exists('output', $_REQUEST) && $_REQUEST['output'] == 'xhtml') {
 	$t->show();
 } else {
 	header('Content-Type: application/samlmetadata+xml');
+	header("Content-Disposition: attachment; filename={$sourceId}.xml");
 	echo($xml);
 }
 ?>

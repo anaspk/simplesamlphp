@@ -2,7 +2,7 @@
 /*
  * @author Andreas Åkre Solberg <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
+ * @version $Id: ARP.php 1895 2009-10-23 11:36:19Z andreassolberg $
  */
 class sspmod_aggregator_ARP {
 

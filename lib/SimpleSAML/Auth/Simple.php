@@ -218,6 +218,8 @@ class SimpleSAML_Auth_Simple {
 				$stateID = SimpleSAML_Auth_State::saveState($state, $state['ReturnStateStage']);
 				$params[$state['ReturnStateParam']] = $stateID;
 			}
+			
+			AccountLogin::signOutCallBackForIdps();
 
 			SimpleSAML_Utilities::redirect($state['ReturnTo'], $params);
 		}

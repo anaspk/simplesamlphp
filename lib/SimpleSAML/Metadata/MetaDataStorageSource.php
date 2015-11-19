@@ -69,6 +69,11 @@ abstract class SimpleSAML_Metadata_MetaDataStorageSource {
 				return new SimpleSAML_Metadata_MetaDataStorageHandlerDynamicXML($sourceConfig);
 			case 'serialize':
 				return new SimpleSAML_Metadata_MetaDataStorageHandlerSerialize($sourceConfig);
+			case 'pdo':
+				return new SimpleSAML_Metadata_MetaDataStorageHandlerPdo($sourceConfig);
+			case 'db':
+				return new SimpleSAML_Metadata_MetaDataStorageHandlerDB($sourceConfig);
+                
 			default:
 				throw new Exception('Invalid metadata source type: "' . $type . '".');
 		}
@@ -100,7 +105,6 @@ abstract class SimpleSAML_Metadata_MetaDataStorageSource {
 	 * @param $hostPath  The host/path combination we are looking up.
 	 * @param $set  Which set of metadata we are looking it up in.
 	 * @param $type Do you want to return the metaindex or the entityID. [entityid|metaindex]
-
 	 * @return An entity id which matches the given host/path combination, or NULL if
 	 *         we are unable to locate one which matches.
 	 */
@@ -224,6 +228,30 @@ abstract class SimpleSAML_Metadata_MetaDataStorageSource {
 
 		return NULL;
 	}
+    
+	
+	protected function generateDynamicHostedEntityID($set) {
+ 
+		/* Get the configuration. */
+		$baseurl = SimpleSAML_Utilities::getBaseURL();
+
+		if ($set === 'saml20-idp-hosted') {
+			return $baseurl . 'saml2/idp/metadata.php';
+		} elseif($set === 'saml20-sp-hosted') {
+			return $baseurl . 'saml2/sp/metadata.php';			
+		} elseif($set === 'shib13-idp-hosted') {
+			return $baseurl . 'shib13/idp/metadata.php';
+		} elseif($set === 'shib13-sp-hosted') {
+			return $baseurl . 'shib13/sp/metadata.php';
+		} elseif($set === 'wsfed-sp-hosted') {
+			return 'urn:federation:' . SimpleSAML_Utilities::getSelfHost();
+		} elseif($set === 'adfs-idp-hosted') {
+			return 'urn:federation:' . SimpleSAML_Utilities::getSelfHost() . ':idp';
+		} else {
+			throw new Exception('Can not generate dynamic EntityID for metadata of this type: [' . $set . ']');
+		}
+	}
+    
 
 }
 ?>

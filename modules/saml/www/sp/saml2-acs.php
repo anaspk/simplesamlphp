@@ -4,7 +4,18 @@
  * Assertion consumer service handler for SAML 2.0 SP authentication client.
  */
 
-$sourceId = substr($_SERVER['PATH_INFO'], 1);
+$secondSlash = strpos($_SERVER['PATH_INFO'], '/', 1);
+if ($secondSlash === FALSE)
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1);
+}
+else
+{
+	$sourceId = substr($_SERVER['PATH_INFO'], 1, $secondSlash - 1);
+	global $account_id;
+	$account_id = substr($_SERVER['PATH_INFO'], $secondSlash + 1);
+}
+
 $source = SimpleSAML_Auth_Source::getById($sourceId, 'sspmod_saml_Auth_Source_SP');
 $spMetadata = $source->getMetadata();
 
