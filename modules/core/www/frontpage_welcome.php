@@ -3,14 +3,14 @@
 
 /* Load simpleSAMLphp, configuration */
 $config = SimpleSAML_Configuration::getInstance();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getSessionFromRequest();
 
 /* Check if valid local session exists.. */
 if ($config->getBoolean('admin.protectindexpage', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+    SimpleSAML\Utils\Auth::requireAdmin();
 }
-$loginurl = SimpleSAML_Utilities::getAdminLoginURL();
-$isadmin = SimpleSAML_Utilities::isAdmin();
+$loginurl = SimpleSAML\Utils\Auth::getAdminLoginURL();
+$isadmin = SimpleSAML\Utils\Auth::isAdmin();
 
 
 
@@ -33,7 +33,7 @@ $allLinks = array(
 );
 
 $links_welcome[] = array(
-	'href' => 'https://rnd.feide.no/view/simplesamlphpdocs',
+	'href' => 'https://simplesamlphp.org/docs/stable/',
 	'text' => '{core:frontpage:doc_header}',
 );
 

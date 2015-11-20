@@ -40,20 +40,24 @@ echo 'File base: [' . $basefile . ']'. "\n";
 switch($action) {
 	case 'pulldef':
 		
-		$content = SimpleSAML_Utilities::fetch($base . 'export.php?aid=' . $application . '&type=def&file=' . $basefile);
+		$content = \SimpleSAML\Utils\HTTP::fetch($base . 'export.php?aid=' . $application . '&type=def&file=' . $basefile);
 		file_put_contents($fileWithoutExt . '.definition.json' , $content);
 		break;
 		
 	case 'pull':
 
-		$content = SimpleSAML_Utilities::fetch($base . 'export.php?aid=' . $application . '&type=translation&file=' . $basefile);
-		file_put_contents($fileWithoutExt . '.translation.json' , $content);
+		try {
+			$content = \SimpleSAML\Utils\HTTP::fetch($base . 'export.php?aid=' . $application . '&type=translation&file=' . $basefile);
+			file_put_contents($fileWithoutExt . '.translation.json' , $content);
+		}
+		catch (SimpleSAML_Error_Exception $e) {
+			echo 'Translation unavailable for ' . $basefile; 
+			SimpleSAML_Logger::warning("Translation unavailable for $basefile in $base: " . $e->getMessage());
+		}
 		break;
 	
 	case 'push':
 
-		#$content = file_get_contents($base . 'export.php?aid=' . $application . '&type=translation&file=' . $basefile);
-		#file_put_contents($fileWithoutExt . '.translation.json' , $content);
 		push($file, $basefile, $application, $type);
 		
 		break;
@@ -188,5 +192,3 @@ function json_format($data, $indentation = '') {
 
 	return $ret;
 }
-
-?>

@@ -38,7 +38,6 @@
  * go to http://yubico.com/developers/api/
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_authYubiKey_Auth_Source_YubiKey extends SimpleSAML_Auth_Source {
 
@@ -104,7 +103,7 @@ class sspmod_authYubiKey_Auth_Source_YubiKey extends SimpleSAML_Auth_Source {
 		$id = SimpleSAML_Auth_State::saveState($state, self::STAGEID);
 
 		$url = SimpleSAML_Module::getModuleURL('authYubiKey/yubikeylogin.php');
-		SimpleSAML_Utilities::redirect($url, array('AuthState' => $id));
+		\SimpleSAML\Utils\HTTP::redirectTrustedURL($url, array('AuthState' => $id));
 	}
 	
 	
@@ -202,5 +201,3 @@ class sspmod_authYubiKey_Auth_Source_YubiKey extends SimpleSAML_Auth_Source {
 	}
 
 }
-
-?>

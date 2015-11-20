@@ -2,7 +2,7 @@
 
 $config = SimpleSAML_Configuration::getInstance();
 $statconfig = SimpleSAML_Configuration::getConfig('module_statistics.php');
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getSessionFromRequest();
 
 
 sspmod_statistics_AccessCheck::checkAccess($statconfig);
@@ -62,7 +62,6 @@ $maxes[] = $dataset->getMax();
 
 if (isset($preferRule2)) {
 	$statrule = $ruleset->getRule($preferRule2);
-#	$rule2 = $statrule->getRuleID();
 	$dataset2 = $statrule->getDataset($preferTimeRes, $preferTime);
 	$dataset2->aggregateSummary();
 	$dataset2->calculateMax();

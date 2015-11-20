@@ -8,7 +8,6 @@
  *
  * @author Dyonisius Visser, TERENA.
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_authcrypt_Auth_Source_Hash extends sspmod_core_Auth_UserPassBase {
 
@@ -51,7 +50,7 @@ class sspmod_authcrypt_Auth_Source_Hash extends sspmod_core_Auth_UserPassBase {
 			$passwordhash = $userpass[1];
 
 			try {
-				$attributes = SimpleSAML_Utilities::parseAttributes($attributes);
+				$attributes = SimpleSAML\Utils\Attributes::normalizeAttributesArray($attributes);
 			} catch(Exception $e) {
 				throw new Exception('Invalid attributes for user ' . $username .
 					' in authentication source ' . $this->authId . ': ' .
@@ -83,7 +82,7 @@ class sspmod_authcrypt_Auth_Source_Hash extends sspmod_core_Auth_UserPassBase {
 		foreach($this->users as $userpass=>$attrs) {
 			$matches = explode(':', $userpass, 2);
 			if ($matches[0] === $username) {
-				if(SimpleSAML_Utils_Crypto::pwValid($matches[1], $password)) {
+				if(SimpleSAML\Utils\Crypto::pwValid($matches[1], $password)) {
 					return $this->users[$userpass];
 				} else {
 					SimpleSAML_Logger::debug('Incorrect password "' . $password . '" for user '. $username);

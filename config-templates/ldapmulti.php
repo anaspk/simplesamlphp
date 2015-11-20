@@ -3,7 +3,6 @@
 /* 
  * Configuration for the multi-DN LDAP authentication module.
  * 
- * $Id$
  */
 
 $ldapmulti = array (
@@ -30,5 +29,3 @@ $ldapmulti = array (
 	)
 	
 );
-
-?>

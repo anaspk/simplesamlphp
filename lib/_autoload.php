@@ -1,14 +1,14 @@
 <?php
 
 /**
- * This file implements a autoloader for simpleSAMLphp. This autoloader
- * will search for files under the simpleSAMLphp directory.
+ * This file is a backwards compatible autoloader for SimpleSAMLphp.
+ * Loads the Composer autoloader.
+ *
  * We have also added support for loading some selected Convo Services
  * classes to this autoloader too.
  *
  * @author Olav Morken, UNINETT AS.
- * @package simpleSAMLphp
- * @version $Id$
+ * @package SimpleSAMLphp
  */
 
 if (!defined('LOCAL_DB_SERVICES_VERSION')) define('LOCAL_DB_SERVICES_VERSION', SERVER_VERSION);
@@ -17,44 +17,22 @@ if (!defined('LOCAL_DB_SERVICES_VERSION')) define('LOCAL_DB_SERVICES_VERSION', S
 if (!defined('LOCAL_LATEST_SERVICES_PATH')) define('LOCAL_LATEST_SERVICES_PATH', realpath($_SERVER['DOCUMENT_ROOT'] . "/scrybe/amfphp1_9/services/db_services_" . LOCAL_DB_SERVICES_VERSION) . "/");
 
 /**
- * Autoload function for simpleSAMLphp.
+ * Old Autoload function for simpleSAMLphp.
  *
- * It will autoload all classes stored in the lib-directory
- * and some whitelisted Convo classes.
+ * It will autoload some whitelisted Convo classes.
  *
  * @param $className  The name of the class.
  */
 function SimpleSAML_autoload($className) {
 
-	$libDir = dirname(__FILE__) . '/';
-
-	/* Special handling for xmlseclibs.php. */
-	if(in_array($className, array('XMLSecurityKey', 'XMLSecurityDSig', 'XMLSecEnc'), TRUE)) {
-		require_once($libDir . 'xmlseclibs.php');
-		return;
-	}
-
-	/* Handlig of modules. */
-	if(substr($className, 0, 7) === 'sspmod_') {
-		$modNameEnd = strpos($className, '_', 7);
-		$module = substr($className, 7, $modNameEnd - 7);
-		$moduleClass = substr($className, $modNameEnd + 1);
-
-		if(!SimpleSAML_Module::isModuleEnabled($module)) {
-			return;
-		}
-
-		$file = SimpleSAML_Module::getModuleDir($module) . '/lib/' . str_replace('_', '/', $moduleClass) . '.php';
+	$convoClasses = array(
+		'AccountLogin' => 'accounts/AccountLogin.php',
+	);
+	
+	if (array_key_exists($className, $convoClasses)) {
+		$file = LOCAL_LATEST_SERVICES_PATH . $convoClasses[$className];
 	} else {
-		$convoClasses = array(
-			'AccountLogin' => 'accounts/AccountLogin.php',
-		);
-		
-		if (array_key_exists($className, $convoClasses)) {
-			$file = LOCAL_LATEST_SERVICES_PATH . $convoClasses[$className];
-		} else {
-			$file = $libDir . str_replace('_', '/', $className) . '.php';
-		}
+		$file = $libDir . str_replace('_', '/', $className) . '.php';
 	}
 
 	if(file_exists($file)) {
@@ -62,24 +40,17 @@ function SimpleSAML_autoload($className) {
 	}
 }
 
-/* Register autoload function for simpleSAMLphp. */
-if(function_exists('spl_autoload_register')) {
-	/* Use the spl_autoload_register function if it is available. It should be available
-	 * for PHP versions >= 5.1.2.
-	 */
-	spl_autoload_register('SimpleSAML_autoload');
-} else {
+spl_autoload_register('SimpleSAML_autoload');
 
-	/* spl_autoload_register is unavailable - let us hope that no one else uses the __autoload function. */
+// Newer autoloader of SSP follows.
 
-	/**
-	 * Autoload function for those who don't have spl_autoload_register.
-	 *
-	 * @param $className  The name of the requested class.
-	 */
-	function __autoload($className) {
-		SimpleSAML_autoload($className);
-	}
+// SSP is loaded as a separate project
+if (file_exists(dirname(dirname(__FILE__)).'/vendor/autoload.php')) {
+    require_once dirname(dirname(__FILE__)).'/vendor/autoload.php';
+} else {  // SSP is loaded as a library.
+    if (file_exists(dirname(dirname(__FILE__)).'/../../autoload.php')) {
+        require_once dirname(dirname(__FILE__)).'/../../autoload.php';
+    } else {
+        throw new Exception('Unable to load Composer autoloader');
+    }
 }
-
-?>

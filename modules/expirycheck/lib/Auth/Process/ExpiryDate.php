@@ -18,7 +18,6 @@
  *
  * @author Alex Mihičinac, ARNES. <alexm@arnes.si>
  * @package simpleSAMLphp
- * @version $Id$
  */
 
 class sspmod_expirycheck_Auth_Process_ExpiryDate extends SimpleSAML_Auth_ProcessingFilter {
@@ -77,7 +76,6 @@ class sspmod_expirycheck_Auth_Process_ExpiryDate extends SimpleSAML_Auth_Process
 	 *
 	 */
 	public function shWarning(&$state, $expireOnDate, $warndaysbefore) {
-		#date_default_timezone_set('Europe/Ljubljana');
 		$now = time();
 		$end = $expireOnDate;
 
@@ -136,12 +134,12 @@ class sspmod_expirycheck_Auth_Process_ExpiryDate extends SimpleSAML_Auth_Process
 			$state['netId'] = $netId;
 			$id = SimpleSAML_Auth_State::saveState($state, 'expirywarning:about2expire');
 			$url = SimpleSAML_Module::getModuleURL('expirycheck/about2expire.php');
-			SimpleSAML_Utilities::redirect($url, array('StateId' => $id));
+			\SimpleSAML\Utils\HTTP::redirectTrustedURL($url, array('StateId' => $id));
 		}
 
 		if (!self::checkDate($expireOnDate)) {
 			SimpleSAML_Logger::error('expirycheck: NetID ' . $netId .
-			                         ' has expired [' . date($this->date_format, $expireOnDate) . ']. Access denied!');
+				' has expired [' . date($this->date_format, $expireOnDate) . ']. Access denied!');
 			$globalConfig = SimpleSAML_Configuration::getInstance();
 
 			/* Save state and redirect. */
@@ -149,13 +147,10 @@ class sspmod_expirycheck_Auth_Process_ExpiryDate extends SimpleSAML_Auth_Process
 			$state['netId'] = $netId;
 			$id = SimpleSAML_Auth_State::saveState($state, 'expirywarning:expired');
 			$url = SimpleSAML_Module::getModuleURL('expirycheck/expired.php');
-			SimpleSAML_Utilities::redirect($url, array('StateId' => $id));
+			\SimpleSAML\Utils\HTTP::redirectTrustedURL($url, array('StateId' => $id));
 
 		}
 	}
 
 
 }
-
-
-?>

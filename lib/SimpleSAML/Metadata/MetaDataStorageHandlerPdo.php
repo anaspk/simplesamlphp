@@ -1,16 +1,38 @@
 <?php
 
+
+/**
+ * Class for handling metadata files stored in a database.
+ *
+ * This class has been based off a previous version written by
+ * mooknarf@gmail.com and patched to work with the latest version
+ * of SimpleSAMLphp
+ *
+ * @author Tyler Antonio, University of Alberta <tantonio@ualberta.ca>
+ * @package SimpleSAMLphp
+ */
 class SimpleSAML_Metadata_MetaDataStorageHandlerPdo extends SimpleSAML_Metadata_MetaDataStorageSource
 {
-    private $pdo;
-    private $tableName;
 
     /**
-     * All the metadata sets simpleSAMLphp supports
+     * The PDO object
      */
+    private $db;
 
-    // FIXME: find these somewhere else, or just don't care...
-    public $supportedSets = array (
+    /**
+     * Prefix to apply to the metadata table
+     */
+    private $tablePrefix;
+
+    /**
+     * This is an associative array which stores the different metadata sets we have loaded.
+     */
+    private $cachedMetadata = array();
+
+    /**
+     * All the metadata sets supported by this MetaDataStorageHandler
+     */
+    public $supportedSets = array(
         'adfs-idp-hosted',
         'adfs-sp-remote',
         'saml20-idp-hosted',
@@ -24,91 +46,199 @@ class SimpleSAML_Metadata_MetaDataStorageHandlerPdo extends SimpleSAML_Metadata_
         'wsfed-sp-hosted'
     );
 
+
+    /**
+     * This constructor initializes the PDO metadata storage handler with the specified
+     * configuration. The configuration is an associative array with the following
+     * possible elements (set in config.php):
+     * - 'usePersistentConnection': TRUE/FALSE if database connection should be persistent.
+     * - 'dsn':                     The database connection string.
+     * - 'username':                Database user name
+     * - 'password':                Password for the database user.
+     *
+     * @param array $config An associative array with the configuration for this handler.
+     */
     public function __construct($config)
     {
         assert('is_array($config)');
 
-        $globalConfig = SimpleSAML_Configuration::getInstance();
-        $cfgHelp = SimpleSAML_Configuration::loadFromArray($config, 'pdo metadata source');
-
-        // determine the table prefix if one was set
-        $this->tableName = $cfgHelp->getString('prefix', '') . "metadata";
-        $dsn = $cfgHelp->getString('dsn');
-
-        $driverOptions = array();
-        if ($cfgHelp->getBoolean('persistent', FALSE)) {
-            $driverOptions[PDO::ATTR_PERSISTENT] = TRUE;
-        }
-
-        $this->pdo = new PDO($dsn, $cfgHelp->getValue('username', NULL), $cfgHelp->getValue('password', NULL), $driverOptions);
-        $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->db = SimpleSAML\Database::getInstance();
     }
 
-    public function getMetadataSet($metadataSet)
-    {
-        if (!in_array($metadataSet, $this->supportedSets)) {
-            return array();
-        }
-        $returnSet = array();
 
-        $stmt = $this->pdo->prepare("SELECT entity_id, entity_data FROM " . $this->tableName . " WHERE metadata_set = :metadata_set");
-        $stmt->bindValue(":metadata_set", $metadataSet, PDO::PARAM_STR);
-       $stmt->bindValue(":metadata_set", $metadataSet, PDO::PARAM_STR);
-        $stmt->execute();
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        // FIXME: can data also be false if no entries are there?
-        foreach ($data as $d) {
-            $returnSet[$d['entity_id']] = json_decode($d['entity_data'], TRUE);
-            // the 'entityid' key needs to be added to the entry itself...
-            if (preg_match('/__DYNAMIC(:[0-9]+)?__/', $d['entity_id'])) {
-                $returnSet[$d['entity_id']]['entityid'] = $this->generateDynamicHostedEntityID($metdataSet);
+    /**
+     * This function loads the given set of metadata from a file to a configured database.
+     * This function returns NULL if it is unable to locate the given set in the metadata directory.
+     *
+     * @param string $set The set of metadata we are loading.
+     *
+     * @return array $metadata Associative array with the metadata, or NULL if we are unable to load metadata from the
+     *     given file.
+     *
+     * @throws Exception If a database error occurs.
+     */
+    private function load($set)
+    {
+        assert('is_string($set)');
+
+        $tableName = $this->getTableName($set);
+
+        if (!in_array($set, $this->supportedSets)) {
+            return null;
+        }
+
+        $stmt = $this->db->read("SELECT entity_id, entity_data FROM $tableName");
+        if ($stmt->execute()) {
+            $metadata = array();
+
+            while ($d = $stmt->fetch()) {
+                $metadata[$d['entity_id']] = json_decode($d['entity_data'], true);
+            }
+
+            return $metadata;
+        } else {
+            throw new Exception('PDO metadata handler: Database error: '.var_export($this->db->getLastError(), true));
+        }
+    }
+
+
+    /**
+     * Retrieve a list of all available metadata for a given set.
+     *
+     * @param string $set The set we are looking for metadata in.
+     *
+     * @return array $metadata An associative array with all the metadata for the given set.
+     */
+    public function getMetadataSet($set)
+    {
+        assert('is_string($set)');
+
+        if (array_key_exists($set, $this->cachedMetadata)) {
+            return $this->cachedMetadata[$set];
+        }
+
+        $metadataSet = $this->load($set);
+        if ($metadataSet === null) {
+            $metadataSet = array();
+        }
+
+        foreach ($metadataSet as $entityId => &$entry) {
+            if (preg_match('/__DYNAMIC(:[0-9]+)?__/', $entityId)) {
+                $entry['entityid'] = $this->generateDynamicHostedEntityID($set);
             } else {
-                $returnSet[$d['entity_id']]['entityid'] = $d['entity_id'];
+                $entry['entityid'] = $entityId;
             }
         }
 
-        return $returnSet;
+        $this->cachedMetadata[$set] = $metadataSet;
+        return $metadataSet;
     }
 
-    public function getMetaData($entityId, $metadataSet)
+
+    private function generateDynamicHostedEntityID($set)
     {
-        if (!in_array($metadataSet, $this->supportedSets)) {
-            return array();
-        }
+        assert('is_string($set)');
 
-        $stmt = $this->pdo->prepare("SELECT entity_data FROM " . $this->tableName . " WHERE entity_id = :entity_id AND metadata_set = :metadata_set");
-        $stmt->bindValue(":entity_id", $entityId, PDO::PARAM_STR);
-        $stmt->bindValue(":metadata_set", $metadataSet, PDO::PARAM_STR);
-        $stmt->execute();
-        $data = $stmt->fetch(PDO::FETCH_ASSOC);
-        // FIXME: if not exists it returns FALSE
-        $entry = json_decode($data['entity_data'], TRUE);
+        // get the configuration
+        $baseurl = \SimpleSAML\Utils\HTTP::getBaseURL();
 
-        // the 'entityid' key needs to be added to the entry itself...
-        if (preg_match('/__DYNAMIC(:[0-9]+)?__/', $entityId)) {
-            $entry['entityid'] = $this->generateDynamicHostedEntityID($metadataSet);
+        if ($set === 'saml20-idp-hosted') {
+            return $baseurl.'saml2/idp/metadata.php';
+        } elseif ($set === 'saml20-sp-hosted') {
+            return $baseurl.'saml2/sp/metadata.php';
+        } elseif ($set === 'shib13-idp-hosted') {
+            return $baseurl.'shib13/idp/metadata.php';
+        } elseif ($set === 'shib13-sp-hosted') {
+            return $baseurl.'shib13/sp/metadata.php';
+        } elseif ($set === 'wsfed-sp-hosted') {
+            return 'urn:federation:'.\SimpleSAML\Utils\HTTP::getSelfHost();
+        } elseif ($set === 'adfs-idp-hosted') {
+            return 'urn:federation:'.\SimpleSAML\Utils\HTTP::getSelfHost().':idp';
         } else {
-            $entry['entityid'] = $entityId;
+            throw new Exception('Can not generate dynamic EntityID for metadata of this type: ['.$set.']');
         }
-
-        return $entry;
     }
 
-    public function addEntry($metadataSet, $entityId , $entityData)
+
+    /**
+     * Add metadata to the configured database
+     *
+     * @param string $index Entity ID
+     * @param string $set The set to add the metadata to
+     * @param array  $entityData Metadata
+     *
+     * @return bool True/False if entry was successfully added
+     */
+    public function addEntry($index, $set, $entityData)
     {
-        if (!in_array($metadataSet, $this->supportedSets)) {
-            return FALSE;
+        assert('is_string($index)');
+        assert('is_string($set)');
+        assert('is_array($entityData)');
+
+        if (!in_array($set, $this->supportedSets)) {
+            return false;
         }
-        $stmt = $this->pdo->prepare("INSERT INTO " . $this->tableName . " (metadata_set, entity_id, entity_data) VALUES(:metadata_set, :entity_id, :entity_data)");
-        $stmt->bindValue(":metadata_set", $metadataSet, PDO::PARAM_STR);
-        $stmt->bindValue(":entity_id", $entityId, PDO::PARAM_STR);
-        $stmt->bindValue(":entity_data", json_encode($entityData), PDO::PARAM_STR);
-        $stmt->execute();
-        //if (FALSE === $result) {
-        //    throw new Exception("DB error: " . var_export($this->pdo->errorInfo(), TRUE));
-        //}
+
+        $tableName = $this->getTableName($set);
+
+        $metadata = $this->db->read(
+            "SELECT entity_id, entity_data FROM $tableName WHERE entity_id = :entity_id",
+            array(
+                'entity_id' => $index,
+            )
+        );
+
+        $retrivedEntityIDs = $metadata->fetch();
+
+        $params = array(
+            'entity_id'   => $index,
+            'entity_data' => json_encode($entityData),
+        );
+
+        if ($retrivedEntityIDs !== false && count($retrivedEntityIDs) > 0) {
+            $stmt = $this->db->write(
+                "UPDATE $tableName SET entity_data = :entity_data WHERE entity_id = :entity_id",
+                $params
+            );
+        } else {
+            $stmt = $this->db->write(
+                "INSERT INTO $tableName (entity_id, entity_data) VALUES (:entity_id, :entity_data)",
+                $params
+            );
+        }
+
         return 1 === $stmt->rowCount();
     }
 
+
+    /**
+     * Replace the -'s to an _ in table names for Metadata sets
+     * since SQL does not allow a - in a table name.
+     *
+     * @param string $table Table
+     *
+     * @return string Replaced table name
+     */
+    private function getTableName($table)
+    {
+        assert('is_string($table)');
+
+        return $this->db->applyPrefix(str_replace("-", "_", $this->tablePrefix.$table));
+    }
+
+
+    /**
+     * Initialize the configured database
+     */
+    public function initDatabase()
+    {
+        foreach ($this->supportedSets as $set) {
+            $tableName = $this->getTableName($set);
+            $this->db->write(
+                "CREATE TABLE IF NOT EXISTS $tableName (entity_id VARCHAR(255) PRIMARY KEY NOT NULL, entity_data ".
+                "TEXT NOT NULL)"
+            );
+        }
+    }
 
 }

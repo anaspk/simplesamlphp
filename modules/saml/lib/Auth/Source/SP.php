@@ -168,7 +168,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		SimpleSAML_Logger::debug('Starting SAML 1 SSO to ' . var_export($idpEntityId, TRUE) .
 			' from ' . var_export($this->entityId, TRUE) . '.');
-		SimpleSAML_Utilities::redirect($url);
+		\SimpleSAML\Utils\HTTP::redirectTrustedURL($url);
 	}
 
 
@@ -194,12 +194,12 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		}
 		$ar->setAssertionConsumerServiceURL(SimpleSAML_Module::getModuleURL($resource));
 
-		if (isset($state['SimpleSAML_Auth_Default.ReturnURL'])) {
-			$ar->setRelayState($state['SimpleSAML_Auth_Default.ReturnURL']);
+		if (isset($state['SimpleSAML_Auth_Source.ReturnURL'])) {
+			$ar->setRelayState($state['SimpleSAML_Auth_Source.ReturnURL']);
 		}
 
 		if (isset($state['saml:AuthnContextClassRef'])) {
-			$accr = SimpleSAML_Utilities::arrayize($state['saml:AuthnContextClassRef']);
+			$accr = SimpleSAML\Utils\Arrays::arrayize($state['saml:AuthnContextClassRef']);
 			$ar->setRequestedAuthnContext(array('AuthnContextClassRef' => $accr));
 		}
 
@@ -228,8 +228,8 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		if (isset($state['saml:IDPList'])) {
 			$IDPList = $state['saml:IDPList'];
 		} else {
-            $IDPList = array();
-        }
+			$IDPList = array();
+		}
 		
 		$ar->setIDPList(array_unique(array_merge($this->metadata->getArray('IDPList', array()), 
 												$idpMetadata->getArray('IDPList', array()),
@@ -265,7 +265,22 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		$ar->setId($id);
 
 		SimpleSAML_Logger::debug('Sending SAML 2 AuthnRequest to ' . var_export($idpMetadata->getString('entityid'), TRUE));
-		$b = new SAML2_HTTPRedirect();
+
+		/* Select appropriate SSO endpoint */
+		if ($ar->getProtocolBinding() === SAML2_Const::BINDING_HOK_SSO) {
+			$dst = $idpMetadata->getDefaultEndpoint('SingleSignOnService', array(
+				SAML2_Const::BINDING_HOK_SSO)
+			);
+		} else {
+			$dst = $idpMetadata->getDefaultEndpoint('SingleSignOnService', array(
+				SAML2_Const::BINDING_HTTP_REDIRECT,
+				SAML2_Const::BINDING_HTTP_POST)
+			);
+		}
+		$ar->setDestination($dst['Location']);
+
+		$b = SAML2_Binding::getBinding($dst['Binding']);
+
 		$this->sendSAML2AuthnRequest($state, $b, $ar);
 
 		assert('FALSE');
@@ -331,18 +346,22 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		}
 
 		$returnTo = SimpleSAML_Module::getModuleURL('saml/sp/discoresp.php', array('AuthID' => $id));
-        
-        $params = array(
-            'entityID' => $this->entityId,
-            'return' => $returnTo,
-            'returnIDParam' => 'idpentityid'
-        );
-        
-        if(isset($state['saml:IDPList'])) {
-            $params['IDPList'] = $state['saml:IDPList'];
-        }
+		
+		$params = array(
+			'entityID' => $this->entityId,
+			'return' => $returnTo,
+			'returnIDParam' => 'idpentityid'
+		);
+		
+		if(isset($state['saml:IDPList'])) {
+			$params['IDPList'] = $state['saml:IDPList'];
+		}
 
-		SimpleSAML_Utilities::redirect($discoURL, $params);
+		if (isset($state['isPassive']) && $state['isPassive']) {
+			$params['isPassive'] = 'true';
+		}
+
+		\SimpleSAML\Utils\HTTP::redirectTrustedURL($discoURL, $params);
 	}
 
 
@@ -380,6 +399,62 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 
 	/**
+	 * Re-authenticate an user.
+	 *
+	 * This function is called by the IdP to give the authentication source a chance to
+	 * interact with the user even in the case when the user is already authenticated.
+	 *
+	 * @param array &$state  Information about the current authentication.
+	 */
+	public function reauthenticate(array &$state) {
+		assert('is_array($state)');
+
+		$session = SimpleSAML_Session::getSessionFromRequest();
+		$data = $session->getAuthState($this->authId);
+		foreach ($data as $k => $v) {
+			$state[$k] = $v;
+		}
+
+		// check if we have an IDPList specified in the request
+		if (isset($state['saml:IDPList']) && sizeof($state['saml:IDPList']) > 0 &&
+			!in_array($state['saml:sp:IdP'], $state['saml:IDPList'], TRUE)) {
+			/*
+			 * This is essentially wrong. The IdP used to authenticate the current session is not in the IDPList
+			 * that we just received, so we are triggering authentication again against an IdP in the IDPList. This
+			 * is fine if the user wants to, but we SHOULD offer the user to logout before proceeding.
+			 *
+			 * After successful authentication in a different IdP, the reauthPostLogin callback will be invoked,
+			 * overriding the current session with a new one, associated with the new IdP. This will leave us in an
+			 * inconsistent state, with several service providers with valid sessions they got from different IdPs.
+			 *
+			 * TODO: we need to offer the user the possibility to logout before blindly authenticating him again.
+			 */
+			$state['LoginCompletedHandler'] = array('sspmod_saml_Auth_Source_SP', 'reauthPostLogin');
+			$this->authenticate($state);
+		}
+	}
+
+
+	/**
+	 * Complete login operation after re-authenticating the user on another IdP.
+	 *
+	 * @param array $state  The authentication state.
+	 */
+	public static function reauthPostLogin(array $state) {
+		assert('isset($state["ReturnCallback"])');
+
+		// Update session state
+		$session = SimpleSAML_Session::getSessionFromRequest();
+		$authId = $state['saml:sp:AuthId'];
+		$session->doLogin($authId, SimpleSAML_Auth_State::getPersistentAuthData($state));
+
+		// resume the login process
+		call_user_func($state['ReturnCallback'], $state);
+		assert('FALSE');
+	}
+
+
+	/**
 	 * Start a SAML 2 logout operation.
 	 *
 	 * @param array $state  The logout state.
@@ -398,7 +473,9 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		$idpMetadata = $this->getIdPMetadata($idp);
 
-		$endpoint = $idpMetadata->getDefaultEndpoint('SingleLogoutService', array(SAML2_Const::BINDING_HTTP_REDIRECT), FALSE);
+		$endpoint = $idpMetadata->getEndpointPrioritizedByBinding('SingleLogoutService', array(
+			SAML2_Const::BINDING_HTTP_REDIRECT,
+			SAML2_Const::BINDING_HTTP_POST), FALSE);
 		if ($endpoint === FALSE) {
 			SimpleSAML_Logger::info('No logout endpoint for IdP ' . var_export($idp, TRUE) . '.');
 			return;
@@ -408,6 +485,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		$lr->setNameId($nameId);
 		$lr->setSessionIndex($sessionIndex);
 		$lr->setRelayState($id);
+		$lr->setDestination($endpoint['Location']);
 
 		$encryptNameId = $idpMetadata->getBoolean('nameid.encryption', NULL);
 		if ($encryptNameId === NULL) {
@@ -417,7 +495,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 			$lr->encryptNameId(sspmod_saml_Message::getEncryptionKey($idpMetadata));
 		}
 
-		$b = new SAML2_HTTPRedirect();
+		$b = SAML2_Binding::getBinding($endpoint['Binding']);
 		$b->send($lr);
 
 		assert('FALSE');
@@ -507,6 +585,29 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 
 	/**
+	 * Handle an unsolicited login operations.
+	 *
+	 * This method creates a session from the information received. It will then redirect to the given URL. This is used
+	 * to handle IdP initiated SSO. This method will never return.
+	 *
+	 * @param string $authId The id of the authentication source that received the request.
+	 * @param array $state A state array.
+	 * @param string $redirectTo The URL we should redirect the user to after updating the session. The function will
+	 * check if the URL is allowed, so there is no need to manually check the URL on beforehand. Please refer to the
+	 * 'trusted.url.domains' configuration directive for more information about allowing (or disallowing) URLs.
+	 */
+	public static function handleUnsolicitedAuth($authId, array $state, $redirectTo) {
+		assert('is_string($authId)');
+		assert('is_string($redirectTo)');
+
+		$session = SimpleSAML_Session::getSessionFromRequest();
+		$session->doLogin($authId, SimpleSAML_Auth_State::getPersistentAuthData($state));
+
+		\SimpleSAML\Utils\HTTP::redirectUntrustedURL($redirectTo);
+	}
+
+
+	/**
 	 * Called when we have completed the procssing chain.
 	 *
 	 * @param array $authProcState  The processing chain state.
@@ -536,7 +637,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 			} else {
 				$redirectTo = $source->getMetadata()->getString('RelayState', '/');
 			}
-			SimpleSAML_Auth_Default::handleUnsolicitedAuth($sourceId, $state, $redirectTo);
+			self::handleUnsolicitedAuth($sourceId, $state, $redirectTo);
 		}
 
 		SimpleSAML_Auth_Source::completeAuth($state);

@@ -7,14 +7,13 @@
  * just serves to make the example work out of the box.
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 
 if (!isset($_REQUEST['ReturnTo'])) {
 	die('Missing ReturnTo parameter.');
 }
 
-$returnTo = $_REQUEST['ReturnTo'];
+$returnTo = \SimpleSAML\Utils\HTTP::checkURLAllowed($_REQUEST['ReturnTo']);
 
 
 /*
@@ -30,8 +29,7 @@ $returnTo = $_REQUEST['ReturnTo'];
 if (!preg_match('@State=(.*)@', $returnTo, $matches)) {
 	die('Invalid ReturnTo URL for this example.');
 }
-$stateId = urldecode($matches[1]);
-SimpleSAML_Auth_State::loadState($stateId, 'exampleauth:External');
+SimpleSAML_Auth_State::loadState(urldecode($matches[1]), 'exampleauth:External');
 
 /*
  * The loadState-function will not return if the second parameter does not
@@ -87,8 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		$_SESSION['mail'] = $user['mail'];
 		$_SESSION['type'] = $user['type'];
 
-		header('Location: ' . $returnTo);
-		exit();
+		\SimpleSAML\Utils\HTTP::redirectTrustedURL($returnTo);
 	}
 }
 

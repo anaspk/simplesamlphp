@@ -14,7 +14,7 @@ $this->includeAtTemplateBase('includes/header.php');
 if ($this->data['errorcode'] !== NULL) {
 ?>
 	<div style="border-left: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; background: #f5f5f5">
-		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-error.48x48.png" class="float-l erroricon" style="margin: 15px " />
+		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-error.48x48.png" class="float-l erroricon" style="margin: 15px" alt="" />
 		<h2><?php echo $this->t('{login:error_header}'); ?></h2>
 		<p><b><?php echo htmlspecialchars($this->t('{errors:title_' . $this->data['errorcode'] . '}', $this->data['errorparams'])); ?></b></p>
 		<p><?php echo htmlspecialchars($this->t('{errors:descr_' . $this->data['errorcode'] . '}', $this->data['errorparams'])); ?></p>
@@ -41,7 +41,7 @@ if ($this->data['forceUsername']) {
 ?>
 			</td>
 <?php
-if ($this->data['rememberUsernameEnabled']) {
+if ($this->data['rememberUsernameEnabled'] || $this->data['rememberMeEnabled']) {
 	$rowspan = 1;
 } elseif (array_key_exists('organizations', $this->data)) {
 	$rowspan = 3;
@@ -51,15 +51,23 @@ if ($this->data['rememberUsernameEnabled']) {
 ?>
 			<td style="padding: .4em;" rowspan="<?php echo $rowspan; ?>">
 <?php
-if ($this->data['rememberUsernameEnabled']) {
-	echo str_repeat("\t", 4);
-	echo '<input type="checkbox" id="remember_username" tabindex="4" name="remember_username" value="Yes" ';
-	echo ($this->data['rememberUsernameChecked'] ? 'checked="Yes" /> ' : '/> ');
-	echo $this->t('{login:remember_username}');
+if ($this->data['rememberUsernameEnabled'] || $this->data['rememberMeEnabled']) {
+    if ($this->data['rememberUsernameEnabled']) {
+        echo str_repeat("\t", 4);
+        echo '<input type="checkbox" id="remember_username" tabindex="4" name="remember_username" value="Yes" ';
+        echo ($this->data['rememberUsernameChecked'] ? 'checked="Yes" /> ' : '/> ');
+        echo $this->t('{login:remember_username}');
+    }
+    if ($this->data['rememberMeEnabled']) {
+        echo str_repeat("\t", 4);
+        echo '<input type="checkbox" id="remember_me" tabindex="4" name="remember_me" value="Yes" ';
+        echo $this->data['rememberMeChecked'] ? 'checked="Yes" /> ' : '/> ';
+        echo $this->t('{login:remember_me}');
+    }
 } else {
 	$text = $this->t('{login:login_button}');
 	echo str_repeat("\t", 4);
-	echo "<input type=\"submit\" tabindex=\"4\" id=\"regularsubmit\" value=\"{$text}\" />";
+	echo "<input onclick=\"this.value='" . $this->t('{login:processing}') . "';this.disabled=true;this.form.submit();return true;\" type=\"submit\" tabindex=\"4\" id=\"regularsubmit\" value=\"{$text}\" />";
 }
 ?>
 			</td>
@@ -69,11 +77,11 @@ if ($this->data['rememberUsernameEnabled']) {
 			<td><input id="password" type="password" tabindex="2" name="password" /></td>
 <?php
 // Move submit button to next row if remember checkbox enabled
-if ($this->data['rememberUsernameEnabled']) {
+if ($this->data['rememberUsernameEnabled'] || $this->data['rememberMeEnabled']) {
 	$rowspan = (array_key_exists('organizations', $this->data) ? 2 : 1);
 ?>
 			<td style="padding: .4em;" rowspan="<?php echo $rowspan; ?>">
-				<input type="submit" tabindex="5" id="regularsubmit" value="<?php echo $this->t('{login:login_button}'); ?>" />
+				<input onclick="this.value='<?php echo $this->t('{login:processing}'); ?>';this.disabled=true;this.form.submit();return true;" type="submit" tabindex="5" id="regularsubmit" value="<?php echo $this->t('{login:login_button}'); ?>" />
 			</td>
 <?php
 }
@@ -113,7 +121,7 @@ foreach ($this->data['organizations'] as $orgId => $orgDesc) {
 }
 ?>
 	<tr><td></td><td>
-	<input type="submit" tabindex="5" id="mobilesubmit" value="<?php echo $this->t('{login:login_button}'); ?>" />
+	<input onclick="this.value='<?php echo $this->t('{login:processing}'); ?>';this.disabled=true;this.form.submit();return true;" type="submit" tabindex="5" id="mobilesubmit" value="<?php echo $this->t('{login:login_button}'); ?>" />
 	</td></tr>
 	</table>
 <?php
@@ -141,4 +149,3 @@ echo('<h2 class="logintext">' . $this->t('{login:help_header}') . '</h2>');
 echo('<p class="logintext">' . $this->t('{login:help_text}') . '</p>');
 
 $this->includeAtTemplateBase('includes/footer.php');
-?>

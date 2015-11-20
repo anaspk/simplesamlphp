@@ -7,15 +7,13 @@
  *
  * @author Olav Morken, UNINETT AS.
  * @package simpleSAMLphp
- * @version $Id$
  */
 
+/* Retrieve the authentication state. */
 if (!array_key_exists('AuthState', $_REQUEST)) {
 	throw new SimpleSAML_Error_BadRequest('Missing AuthState parameter.');
 }
 $authStateId = $_REQUEST['AuthState'];
-
-/* Retrieve the authentication state. */
 $state = SimpleSAML_Auth_State::loadState($authStateId, sspmod_core_Auth_UserPassOrgBase::STAGEID);
 
 $source = SimpleSAML_Auth_Source::getById($state[sspmod_core_Auth_UserPassOrgBase::AUTHID]);
@@ -59,7 +57,7 @@ if ($organizations === NULL || !empty($organization)) {
 			$params = $sessionHandler->getCookieParams();
 			$params['expire'] = time();
 			$params['expire'] += (isset($_REQUEST['remember_username']) && $_REQUEST['remember_username'] == 'Yes' ? 31536000 : -300);
-			setcookie($source->getAuthId() . '-username', $username, $params['expire'], $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            \SimpleSAML\Utils\HTTP::setCookie($source->getAuthId() . '-username', $username, $params, FALSE);
 		}
 
 		try {
@@ -97,5 +95,3 @@ if (isset($state['SPMetadata'])) {
 $t->show();
 exit();
 
-
-?>

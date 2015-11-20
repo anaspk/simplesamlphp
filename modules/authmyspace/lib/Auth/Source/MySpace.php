@@ -7,7 +7,6 @@ require_once(dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/oauth/lib
  *
  * @author Brook Schofield, TERENA.
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_authmyspace_Auth_Source_MySpace extends SimpleSAML_Auth_Source {
 
@@ -93,9 +92,6 @@ class sspmod_authmyspace_Auth_Source_MySpace extends SimpleSAML_Auth_Source {
 		$accessToken = $consumer->getAccessToken('http://api.myspace.com/access_token', $requestToken);
 		SimpleSAML_Logger::debug("Got an access token from the OAuth service provider [" .
 			$accessToken->key . "] with the secret [" . $accessToken->secret . "]");
-
-		// API depricated on 20th September 2010
-		//$userdata = $consumer->getUserInfo('http://api.myspace.com/v1/user.json', $accessToken);
 
 		// People API -  http://developerwiki.myspace.com/index.php?title=People_API
 		$userdata = $consumer->getUserInfo('http://api.myspace.com/1.0/people/@me/@self?fields=@all', $accessToken);

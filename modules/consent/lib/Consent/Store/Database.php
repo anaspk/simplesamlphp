@@ -15,7 +15,6 @@
  *
  * @author  Olav Morken <olav.morken@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_consent_Consent_Store_Database extends sspmod_consent_Store
 {
@@ -483,14 +482,7 @@ class sspmod_consent_Consent_Store_Database extends sspmod_consent_Store
             $driver_options[PDO::ATTR_TIMEOUT] = $this->_timeout;
         }
 
-        // @TODO Cleanup this section
-        //try {
         $this->_db = new PDO($this->_dsn, $this->_username, $this->_password, $driver_options);
-        // 		} catch (PDOException $e) {
-        // 			SimpleSAML_Logger::error('consent:Database - Failed to connect to \'' .
-        // 				$this->_dsn . '\': '. $e->getMessage());
-        // 			$this->db = false;
-        // 		}
 
         return $this->_db;
     }
@@ -510,5 +502,25 @@ class sspmod_consent_Consent_Store_Database extends sspmod_consent_Store
         assert('count($error) >= 3');
 
         return $error[0] . ' - ' . $error[2] . ' (' . $error[1] . ')';
+    }
+
+    /**
+     * A quick selftest of the consent database.
+     *
+     * @return boolen TRUE if OK, FALSE if not. Will throw an exception on connection errors.
+     */
+    public function selftest()
+    {
+        $st = $this->_execute(
+            'SELECT * FROM ' . $this->_table . ' WHERE hashed_user_id = ? AND service_id = ? AND attribute = ?',
+            array('test', 'test', 'test')
+        );
+
+        if ($st === FALSE) {
+            /* Normally, the test will fail by an exception, so we won't reach this code. */
+            return FALSE;
+        }
+
+	return TRUE;
     }
 }

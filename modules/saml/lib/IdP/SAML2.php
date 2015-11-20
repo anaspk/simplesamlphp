@@ -4,7 +4,6 @@
  * IdP implementation for SAML 2.0 protocol.
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_saml_IdP_SAML2 {
 
@@ -64,11 +63,15 @@ class sspmod_saml_IdP_SAML2 {
 		/* Register the session association with the IdP. */
 		$idp->addAssociation($association);
 
-		SimpleSAML_Stats::log('saml:idp:Response', array(
+		$statsData = array(
 			'spEntityID' => $spEntityId,
 			'idpEntityID' => $idpMetadata->getString('entityid'),
 			'protocol' => 'saml2',
-		));
+		);
+		if (isset($state['saml:AuthnRequestReceivedAt'])) {
+			$statsData['logintime'] = microtime(TRUE) - $state['saml:AuthnRequestReceivedAt'];
+		}
+		SimpleSAML_Stats::log('saml:idp:Response', $statsData);
 
 		/* Send the response. */
 		$binding = SAML2_Binding::getBinding($protocolBinding);
@@ -118,12 +121,16 @@ class sspmod_saml_IdP_SAML2 {
 		);
 		$ar->setStatus($status);
 
-		SimpleSAML_Stats::log('saml:idp:Response:error', array(
+		$statsData = array(
 			'spEntityID' => $spEntityId,
 			'idpEntityID' => $idpMetadata->getString('entityid'),
 			'protocol' => 'saml2',
 			'error' => $status,
-		));
+		);
+		if (isset($state['saml:AuthnRequestReceivedAt'])) {
+			$statsData['logintime'] = microtime(TRUE) - $state['saml:AuthnRequestReceivedAt'];
+		}
+		SimpleSAML_Stats::log('saml:idp:Response:error', $statsData);
 
 		$binding = SAML2_Binding::getBinding($protocolBinding);
 		$binding->send($ar);
@@ -240,7 +247,7 @@ class sspmod_saml_IdP_SAML2 {
 					 * Less than five seconds has passed since we were
 					 * here the last time. Cookies are probably disabled.
 					 */
-					SimpleSAML_Utilities::checkCookie(SimpleSAML_Utilities::selfURL());
+					\SimpleSAML\Utils\HTTP::checkSessionCookie(\SimpleSAML\Utils\HTTP::getSelfURL());
 				}
 			}
 
@@ -325,7 +332,7 @@ class sspmod_saml_IdP_SAML2 {
 
 			$idpInit = FALSE;
 
-			SimpleSAML_Logger::info('SAML2.0 - IdP.SSOService: Incomming Authentication request: '. var_export($spEntityId, TRUE));
+			SimpleSAML_Logger::info('SAML2.0 - IdP.SSOService: incoming authentication request: '. var_export($spEntityId, TRUE));
 		}
 
 		SimpleSAML_Stats::log('saml:idp:AuthnRequest', array(
@@ -340,7 +347,7 @@ class sspmod_saml_IdP_SAML2 {
 		$acsEndpoint = self::getAssertionConsumerService($supportedBindings, $spMetadata, $consumerURL, $protocolBinding, $consumerIndex);
 
 		$IDPList = array_unique(array_merge($IDPList, $spMetadata->getArrayizeString('IDPList', array())));
-		if ($ProxyCount == null) $ProxyCount = $spMetadata->getInteger('ProxyCount', null);
+		if ($ProxyCount === null) $ProxyCount = $spMetadata->getInteger('ProxyCount', null);
 
 		if (!$forceAuthn) {
 			$forceAuthn = $spMetadata->getBoolean('ForceAuthn', FALSE);
@@ -354,8 +361,8 @@ class sspmod_saml_IdP_SAML2 {
 			$sessionLostParams['RelayState'] = $relayState;
 		}
 
-		$sessionLostURL = SimpleSAML_Utilities::addURLparameter(
-			SimpleSAML_Utilities::selfURLNoQuery(),
+		$sessionLostURL = \SimpleSAML\Utils\HTTP::addURLParameters(
+            \SimpleSAML\Utils\HTTP::getSelfURLNoQuery(),
 			$sessionLostParams);
 
 		$state = array(
@@ -376,6 +383,7 @@ class sspmod_saml_IdP_SAML2 {
 			'saml:NameIDFormat' => $nameIDFormat,
 			'saml:AllowCreate' => $allowCreate,
 			'saml:Extensions' => $extensions,
+			'saml:AuthnRequestReceivedAt' => microtime(TRUE),
 		);
 
 		$idp->handleAuthenticationRequest($state);
@@ -383,8 +391,42 @@ class sspmod_saml_IdP_SAML2 {
 
 
 	/**
+	 * Send a logout request to a given association.
+	 *
+	 * @param SimpleSAML_IdP $idp  The IdP we are sending a logout request from.
+	 * @param array $association  The association that should be terminated.
+	 * @param string|NULL $relayState  An id that should be carried across the logout.
+	 */
+	public static function sendLogoutRequest(SimpleSAML_IdP $idp, array $association, $relayState) {
+		assert('is_string($relayState) || is_null($relayState)');
+
+		SimpleSAML_Logger::info('Sending SAML 2.0 LogoutRequest to: '. var_export($association['saml:entityID'], TRUE));
+
+		$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+		$idpMetadata = $idp->getConfig();
+		$spMetadata = $metadata->getMetaDataConfig($association['saml:entityID'], 'saml20-sp-remote');
+
+		SimpleSAML_Stats::log('saml:idp:LogoutRequest:sent', array(
+			'spEntityID' => $association['saml:entityID'],
+			'idpEntityID' => $idpMetadata->getString('entityid'),
+		));
+
+		$dst = $spMetadata->getEndpointPrioritizedByBinding('SingleLogoutService', array(
+			SAML2_Const::BINDING_HTTP_REDIRECT,
+			SAML2_Const::BINDING_HTTP_POST)
+		);
+		$binding = SAML2_Binding::getBinding($dst['Binding']);
+		$lr = self::buildLogoutRequest($idpMetadata, $spMetadata, $association, $relayState);
+		$lr->setDestination($dst['Location']);
+
+		$binding->send($lr);
+	}
+
+
+	/**
 	 * Send a logout response.
 	 *
+	 * @param SimpleSAML_IdP $idp  The IdP we are sending a logout request from.
 	 * @param array &$state  The logout state array.
 	 */
 	public static function sendLogoutResponse(SimpleSAML_IdP $idp, array $state) {
@@ -419,8 +461,18 @@ class sspmod_saml_IdP_SAML2 {
 			'idpEntityID' => $idpMetadata->getString('entityid'),
 			'partial' => $partial
 		));
+		$dst = $spMetadata->getEndpointPrioritizedByBinding('SingleLogoutService', array(
+			SAML2_Const::BINDING_HTTP_REDIRECT,
+			SAML2_Const::BINDING_HTTP_POST)
+		);
+		$binding = SAML2_Binding::getBinding($dst['Binding']);
+		if (isset($dst['ResponseLocation'])) {
+			$dst = $dst['ResponseLocation'];
+		} else {
+			$dst = $dst['Location'];
+		}
+		$lr->setDestination($dst);
 
-		$binding = new SAML2_HTTPRedirect();
 		$binding->send($lr);
 	}
 
@@ -502,7 +554,7 @@ class sspmod_saml_IdP_SAML2 {
 
 
 	/**
-	 * Retrieve a logout URL for a given logout association.
+     * Retrieve a logout URL for a given logout association.
 	 *
 	 * @param SimpleSAML_IdP $idp  The IdP we are sending a logout request from.
 	 * @param array $association  The association that should be terminated.
@@ -517,29 +569,20 @@ class sspmod_saml_IdP_SAML2 {
 		$idpMetadata = $idp->getConfig();
 		$spMetadata = $metadata->getMetaDataConfig($association['saml:entityID'], 'saml20-sp-remote');
 
-		$lr = sspmod_saml_Message::buildLogoutRequest($idpMetadata, $spMetadata);
-		$lr->setRelayState($relayState);
-		$lr->setSessionIndex($association['saml:SessionIndex']);
-		$lr->setNameId($association['saml:NameID']);
+		$bindings = array(SAML2_Const::BINDING_HTTP_REDIRECT,
+						  SAML2_Const::BINDING_HTTP_POST);
+		$dst = $spMetadata->getEndpointPrioritizedByBinding('SingleLogoutService', $bindings);
 
-		$assertionLifetime = $spMetadata->getInteger('assertion.lifetime', NULL);
-		if ($assertionLifetime === NULL) {
-			$assertionLifetime = $idpMetadata->getInteger('assertion.lifetime', 300);
-		}
-		$lr->setNotOnOrAfter(time() + $assertionLifetime);
-
-		$encryptNameId = $spMetadata->getBoolean('nameid.encryption', NULL);
-		if ($encryptNameId === NULL) {
-			$encryptNameId = $idpMetadata->getBoolean('nameid.encryption', FALSE);
-		}
-		if ($encryptNameId) {
-			$lr->encryptNameId(sspmod_saml_Message::getEncryptionKey($spMetadata));
+		if ($dst['Binding'] === SAML2_Const::BINDING_HTTP_POST) {
+			$params = array('association' => $association['id'], 'idp' => $idp->getId());
+			if ($relayState !== NULL) {
+				$params['RelayState'] = $relayState;
+			}
+			return SimpleSAML_Module::getModuleURL('core/idp/logout-iframe-post.php', $params);
 		}
 
-		SimpleSAML_Stats::log('saml:idp:LogoutRequest:sent', array(
-			'spEntityID' => $association['saml:entityID'],
-			'idpEntityID' => $idpMetadata->getString('entityid'),
-		));
+		$lr = self::buildLogoutRequest($idpMetadata, $spMetadata, $association, $relayState);
+		$lr->setDestination($dst['Location']);
 
 		$binding = new SAML2_HTTPRedirect();
 		return $binding->getRedirectURL($lr);
@@ -585,7 +628,7 @@ class sspmod_saml_IdP_SAML2 {
 				$idpEntityId = $idpMetadata->getString('entityid');
 				$spEntityId = $spMetadata->getString('entityid');
 
-				$secretSalt = SimpleSAML_Utilities::getSecretSalt();
+				$secretSalt = SimpleSAML\Utils\Config::getSecretSalt();
 
 				$uidData = 'uidhashbase' . $secretSalt;
 				$uidData .= strlen($idpEntityId) . ':' . $idpEntityId;
@@ -649,6 +692,12 @@ class sspmod_saml_IdP_SAML2 {
 			}
 
 			foreach ($values as $value) {
+                // allow null values
+                if ($value === null) {
+                    $ret[$name][] = $value;
+                    continue;
+                }
+
 				switch ($encoding) {
 				case 'string':
 					$value = (string)$value;
@@ -658,8 +707,7 @@ class sspmod_saml_IdP_SAML2 {
 					break;
 				case 'raw':
 					if (is_string($value)) {
-						$doc = new DOMDocument();
-						$doc->loadXML('<root>' . $value . '</root>');
+						$doc = SAML2_DOMDocumentFactory::fromString('<root>' . $value . '</root>');
 						$value = $doc->firstChild->childNodes;
 					}
 					assert('$value instanceof DOMNodeList');
@@ -683,7 +731,8 @@ class sspmod_saml_IdP_SAML2 {
 	 * @param SimpleSAML_Configuration $spMetadata  The metadata of the SP.
 	 * @return string  The NameFormat.
 	 */
-	private static function getAttributeNameFormat(SimpleSAML_Configuration $idpMetadata, SimpleSAML_Configuration $spMetadata) {
+	private static function getAttributeNameFormat(SimpleSAML_Configuration $idpMetadata,
+		SimpleSAML_Configuration $spMetadata) {
 
 		/* Try SP metadata first. */
 		$attributeNameFormat = $spMetadata->getString('attributes.NameFormat', NULL);
@@ -723,6 +772,8 @@ class sspmod_saml_IdP_SAML2 {
 		assert('isset($state["Attributes"])');
 		assert('isset($state["saml:ConsumerURL"])');
 
+		$now = time();
+
 		$signAssertion = $spMetadata->getBoolean('saml20.sign.assertion', NULL);
 		if ($signAssertion === NULL) {
 			$signAssertion = $idpMetadata->getBoolean('saml20.sign.assertion', TRUE);
@@ -738,13 +789,13 @@ class sspmod_saml_IdP_SAML2 {
 		$a->setIssuer($idpMetadata->getString('entityid'));
 		$a->setValidAudiences(array($spMetadata->getString('entityid')));
 
-		$a->setNotBefore(time() - 30);
+		$a->setNotBefore($now - 30);
 
 		$assertionLifetime = $spMetadata->getInteger('assertion.lifetime', NULL);
 		if ($assertionLifetime === NULL) {
 			$assertionLifetime = $idpMetadata->getInteger('assertion.lifetime', 300);
 		}
-		$a->setNotOnOrAfter(time() + $assertionLifetime);
+		$a->setNotOnOrAfter($now + $assertionLifetime);
 
 		if (isset($state['saml:AuthnContextClassRef'])) {
 			$a->setAuthnContext($state['saml:AuthnContextClassRef']);
@@ -752,22 +803,20 @@ class sspmod_saml_IdP_SAML2 {
 			$a->setAuthnContext(SAML2_Const::AC_PASSWORD);
 		}
 
+		$sessionStart = $now;
 		if (isset($state['AuthnInstant'])) {
 			$a->setAuthnInstant($state['AuthnInstant']);
-		} else {
-			/* For backwards compatibility. Remove in version 1.8. */
-			$session = SimpleSAML_Session::getInstance();
-			$a->setAuthnInstant($session->getAuthnInstant());
+			$sessionStart = $state['AuthnInstant'];
 		}
 
 		$sessionLifetime = $config->getInteger('session.duration', 8*60*60);
-		$a->setSessionNotOnOrAfter(time() + $sessionLifetime);
+		$a->setSessionNotOnOrAfter($sessionStart + $sessionLifetime);
 
-		$a->setSessionIndex(SimpleSAML_Utilities::generateID());
+		$a->setSessionIndex(SimpleSAML\Utils\Random::generateID());
 
 		$sc = new SAML2_XML_saml_SubjectConfirmation();
 		$sc->SubjectConfirmationData = new SAML2_XML_saml_SubjectConfirmationData();
-		$sc->SubjectConfirmationData->NotOnOrAfter = time() + $assertionLifetime;
+		$sc->SubjectConfirmationData->NotOnOrAfter = $now + $assertionLifetime;
 		$sc->SubjectConfirmationData->Recipient = $state['saml:ConsumerURL'];
 		$sc->SubjectConfirmationData->InResponseTo = $state['saml:RequestId'];
 
@@ -783,7 +832,7 @@ class sspmod_saml_IdP_SAML2 {
 		if ($hokAssertion) {
 			/* Holder-of-Key */
 			$sc->Method = SAML2_Const::CM_HOK;
-			if (SimpleSAML_Utilities::isHTTPS()) {
+			if (\SimpleSAML\Utils\HTTP::isHTTPS()) {
 				if (isset($_SERVER['SSL_CLIENT_CERT']) && !empty($_SERVER['SSL_CLIENT_CERT'])) {
 					/* Extract certificate data (if this is a certificate). */
 					$clientCert = $_SERVER['SSL_CLIENT_CERT'];
@@ -829,7 +878,10 @@ class sspmod_saml_IdP_SAML2 {
 
 		if ($nameIdFormat === NULL || !isset($state['saml:NameID'][$nameIdFormat])) {
 			/* Either not set in request, or not set to a format we supply. Fall back to old generation method. */
-			$nameIdFormat = $spMetadata->getString('NameIDFormat', 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient');
+			$nameIdFormat = $spMetadata->getString('NameIDFormat', NULL);
+			if ($nameIdFormat === NULL) {
+				$nameIdFormat = $idpMetadata->getString('NameIDFormat', SAML2_Const::NAMEID_TRANSIENT);
+			}
 		}
 
 		if (isset($state['saml:NameID'][$nameIdFormat])) {
@@ -843,7 +895,7 @@ class sspmod_saml_IdP_SAML2 {
 
 			if ($nameIdFormat === SAML2_Const::NAMEID_TRANSIENT) {
 				/* generate a random id */
-				$nameIdValue = SimpleSAML_Utilities::generateID();
+				$nameIdValue = SimpleSAML\Utils\Random::generateID();
 			} else {
 				/* this code will end up generating either a fixed assigned id (via nameid.attribute)
 				   or random id if not assigned/configured */
@@ -851,7 +903,7 @@ class sspmod_saml_IdP_SAML2 {
 				if ($nameIdValue === NULL) {
 					SimpleSAML_Logger::warning('Falling back to transient NameID.');
 					$nameIdFormat = SAML2_Const::NAMEID_TRANSIENT;
-					$nameIdValue = SimpleSAML_Utilities::generateID();
+					$nameIdValue = SimpleSAML\Utils\Random::generateID();
 				}
 			}
 
@@ -931,13 +983,48 @@ class sspmod_saml_IdP_SAML2 {
 
 
 	/**
+	 * Build a logout request based on information in the metadata.
+	 *
+	 * @param SimpleSAML_Configuration idpMetadata  The metadata of the IdP.
+	 * @param SimpleSAML_Configuration spMetadata  The metadata of the SP.
+	 * @param array $association  The SP association.
+	 * @param string|NULL $relayState  An id that should be carried across the logout.
+	 */
+	private static function buildLogoutRequest(SimpleSAML_Configuration $idpMetadata,
+		SimpleSAML_Configuration $spMetadata, array $association, $relayState) {
+
+		$lr = sspmod_saml_Message::buildLogoutRequest($idpMetadata, $spMetadata);
+		$lr->setRelayState($relayState);
+		$lr->setSessionIndex($association['saml:SessionIndex']);
+		$lr->setNameId($association['saml:NameID']);
+
+		$assertionLifetime = $spMetadata->getInteger('assertion.lifetime', NULL);
+		if ($assertionLifetime === NULL) {
+			$assertionLifetime = $idpMetadata->getInteger('assertion.lifetime', 300);
+		}
+		$lr->setNotOnOrAfter(time() + $assertionLifetime);
+
+		$encryptNameId = $spMetadata->getBoolean('nameid.encryption', NULL);
+		if ($encryptNameId === NULL) {
+			$encryptNameId = $idpMetadata->getBoolean('nameid.encryption', FALSE);
+		}
+		if ($encryptNameId) {
+			$lr->encryptNameId(sspmod_saml_Message::getEncryptionKey($spMetadata));
+		}
+
+		return $lr;
+	}
+
+
+	/**
 	 * Build a authentication response based on information in the metadata.
 	 *
 	 * @param SimpleSAML_Configuration $idpMetadata  The metadata of the IdP.
 	 * @param SimpleSAML_Configuration $spMetadata  The metadata of the SP.
 	 * @param string $consumerURL  The Destination URL of the response.
 	 */
-	private static function buildResponse(SimpleSAML_Configuration $idpMetadata, SimpleSAML_Configuration $spMetadata, $consumerURL) {
+	private static function buildResponse(SimpleSAML_Configuration $idpMetadata,
+		SimpleSAML_Configuration $spMetadata, $consumerURL) {
 
 		$signResponse = $spMetadata->getBoolean('saml20.sign.response', NULL);
 		if ($signResponse === NULL) {

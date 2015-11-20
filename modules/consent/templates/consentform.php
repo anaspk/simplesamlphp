@@ -13,7 +13,6 @@
  * - 'sppp': URL to the privacy policy of the destination, or FALSE.
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 assert('is_array($this->data["srcMetadata"])');
 assert('is_array($this->data["dstMetadata"])');
@@ -75,7 +74,7 @@ if (array_key_exists('descr_purpose', $this->data['dstMetadata'])) {
         array(
             'SPNAME' => $dstName,
             'SPDESC' => $this->getTranslation(
-                SimpleSAML_Utilities::arrayize(
+                SimpleSAML\Utils\Arrays::arrayize(
                     $this->data['dstMetadata']['descr_purpose'],
                     'en'
                 )
@@ -168,7 +167,7 @@ function present_attributes($t, $attributes, $nameParent)
 
             $isHidden = in_array($nameraw, $t->data['hiddenAttributes'], true);
             if ($isHidden) {
-                $hiddenId = SimpleSAML_Utilities::generateID();
+                $hiddenId = SimpleSAML\Utils\Random::generateID();
 
                 $str .= '<div class="attrvalue" style="display: none;" id="hidden_' . $hiddenId . '">';
             } else {

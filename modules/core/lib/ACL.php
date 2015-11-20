@@ -4,7 +4,6 @@
  * Generic library for access control lists.
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_core_ACL {
 
@@ -120,7 +119,7 @@ class sspmod_core_ACL {
 		case 'or':
 			return self::opOr($attributes, $rule);
 		default:
-			throw new SimpleSAML_Error_Exception('Invalid ACL operation: ' . var_export($op. TRUE));
+			throw new SimpleSAML_Error_Exception('Invalid ACL operation: ' . var_export($op, TRUE));
 		}
 	}
 

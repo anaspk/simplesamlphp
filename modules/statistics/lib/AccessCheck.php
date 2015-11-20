@@ -4,7 +4,6 @@
  * Class implementing the access checker function for the statistics module.
  *
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_statistics_AccessCheck {
 
@@ -29,7 +28,7 @@ class sspmod_statistics_AccessCheck {
 			return;
 		}
 
-		if (SimpleSAML_Utilities::isAdmin()) {
+		if (SimpleSAML\Utils\Auth::isAdmin()) {
 			// User logged in as admin. OK.
 			SimpleSAML_Logger::debug('Statistics auth - logged in as admin, access granted');
 			return;
@@ -37,7 +36,7 @@ class sspmod_statistics_AccessCheck {
 
 		if (!isset($authsource)) {
 			// If authsource is not defined, init admin login.
-			SimpleSAML_Utilities::requireAdmin();
+            SimpleSAML\Utils\Auth::requireAdmin();
 		}
 
 		/* We are using an authsource for login. */

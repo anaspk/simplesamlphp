@@ -4,19 +4,19 @@
 
 /* Load simpleSAMLphp, configuration */
 $config = SimpleSAML_Configuration::getInstance();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getSessionFromRequest();
 
 /* Check if valid local session exists.. */
 if ($config->getBoolean('admin.protectindexpage', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+    SimpleSAML\Utils\Auth::requireAdmin();
 }
-$loginurl = SimpleSAML_Utilities::getAdminLoginURL();
-$isadmin = SimpleSAML_Utilities::isAdmin();
+$loginurl = SimpleSAML\Utils\Auth::getAdminLoginURL();
+$isadmin = SimpleSAML\Utils\Auth::isAdmin();
 
 
 $warnings = array();
 
-if (!SimpleSAML_Utilities::isHTTPS()) {
+if (!\SimpleSAML\Utils\HTTP::isHTTPS()) {
 	$warnings[] = '{core:frontpage:warnings_https}';
 }
 
@@ -44,12 +44,12 @@ $links_federation = array();
 
 
 $links_config[] = array(
-	'href' => SimpleSAML_Utilities::getBaseURL() . 'example-simple/hostnames.php?dummy=1',
+	'href' => \SimpleSAML\Utils\HTTP::getBaseURL() . 'admin/hostnames.php',
 	'text' => '{core:frontpage:link_diagnostics}'
 );
 
 $links_config[] = array(
-	'href' => SimpleSAML_Utilities::getBaseURL() . 'admin/phpinfo.php',
+	'href' => \SimpleSAML\Utils\HTTP::getBaseURL() . 'admin/phpinfo.php',
 	'text' => '{core:frontpage:link_phpinfo}'
 );
 
@@ -85,7 +85,7 @@ $functionchecks = array(
 	'simplexml_import_dom' => array('required', 'SimpleXML'),
 	'dom_import_simplexml' => array('required', 'XML DOM'),
 	'preg_match'       => array('required',  'RegEx support'),
-	'mcrypt_module_open'=> array('required',  'MCrypt'),
+	'mcrypt_module_open'=> array('optional',  'MCrypt'),
 	'mysql_connect'    => array('optional',  'MySQL support'),
 );
 if (SimpleSAML_Module::isModuleEnabled('ldap')) {
@@ -98,8 +98,8 @@ if (SimpleSAML_Module::isModuleEnabled('radius')) {
 $funcmatrix = array();
 $funcmatrix[] = array(
 	'required' => 'required', 
-	'descr' => 'PHP Version >= 5.2. You run: ' . phpversion(),
-	'enabled' => version_compare(phpversion(), '5.2', '>='));
+	'descr' => 'PHP Version >= 5.3. You run: ' . phpversion(),
+	'enabled' => version_compare(phpversion(), '5.3', '>='));
 foreach ($functionchecks AS $func => $descr) {
 	$funcmatrix[] = array('descr' => $descr[1], 'required' => $descr[0], 'enabled' => function_exists($func));
 }

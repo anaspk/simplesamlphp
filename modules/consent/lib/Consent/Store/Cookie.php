@@ -18,7 +18,6 @@
  *
  * @author  Olav Morken <olav.morken@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_consent_Consent_Store_Cookie extends sspmod_consent_Store
 {
@@ -200,7 +199,7 @@ class sspmod_consent_Consent_Store_Cookie extends sspmod_consent_Store
     {
         assert('is_string($data)');
 
-        $secretSalt = SimpleSAML_Utilities::getSecretSalt();
+        $secretSalt = SimpleSAML\Utils\Config::getSecretSalt();
 
         return sha1($secretSalt . $data . $secretSalt) . ':' . $data;
     }
@@ -264,28 +263,23 @@ class sspmod_consent_Consent_Store_Cookie extends sspmod_consent_Store
     private function _setConsentCookie($name, $value)
     {
         assert('is_string($name)');
-        assert('is_string($value)');
-
-        if ($value === null) {
-            $expire = 1; /* Delete by setting expiry in the past. */
-            $value = '';
-        } else {
-            $expire = time() + 90 * 24*60*60;
-        }
-
-        if (SimpleSAML_Utilities::isHTTPS()) {
-            /* Enable secure cookie for https-requests. */
-            $secure = true;
-        } else {
-            $secure = false;
-        }
+        assert('is_string($value) || is_null($value)');
 
         $globalConfig = SimpleSAML_Configuration::getInstance();
-        $path = '/' . $globalConfig->getBaseURL();
+        $params = array(
+            'lifetime' => (90*24*60*60),
+            'path' => ('/' . $globalConfig->getBaseURL()),
+            'httponly' => FALSE,
+        );
 
-        setcookie($name, $value, $expire, $path, null, $secure);
+        if (\SimpleSAML\Utils\HTTP::isHTTPS()) {
+            /* Enable secure cookie for https-requests. */
+            $params['secure'] = true;
+        } else {
+            $params['secure'] = false;
+        }
+
+        \SimpleSAML\Utils\HTTP::setCookie($name, $value, $params, FALSE);
     }
 
 }
-
-?>

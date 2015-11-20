@@ -7,7 +7,7 @@
  */
 
 if (!array_key_exists('PATH_INFO', $_SERVER)) {
-	throw new SimpleSAML_Error_BadRequest('Missing authentication source id in logout URL');
+	throw new SimpleSAML_Error_BadRequest('Missing authentication source ID in logout URL');
 }
 
 $secondSlash = strpos($_SERVER['PATH_INFO'], '/', 1);
@@ -32,7 +32,17 @@ if (!($source instanceof sspmod_saml_Auth_Source_SP)) {
 	throw new SimpleSAML_Error_Exception('Source type changed?');
 }
 
-$binding = SAML2_Binding::getCurrentBinding();
+try {
+    $binding = SAML2_Binding::getCurrentBinding();
+} catch (Exception $e) { // TODO: look for a specific exception
+    // This is dirty. Instead of checking the message of the exception, SAML2_Binding::getCurrentBinding() should throw
+    // an specific exception when the binding is unknown, and we should capture that here.
+    if ($e->getMessage() === 'Unable to find the current binding.') {
+        throw new SimpleSAML_Error_Error('SLOSERVICEPARAMS', $e, 400);
+    } else {
+        throw $e; // do not ignore other exceptions!
+    }
+}
 $message = $binding->receive();
 
 $idpEntityId = $message->getIssuer();
@@ -50,7 +60,7 @@ $spMetadata = $source->getMetadata();
 sspmod_saml_Message::validateMessage($idpMetadata, $spMetadata, $message);
 
 $destination = $message->getDestination();
-if ($destination !== NULL && $destination !== SimpleSAML_Utilities::selfURLNoQuery()) {
+if ($destination !== NULL && $destination !== \SimpleSAML\Utils\HTTP::getSelfURLNoQuery()) {
 	throw new SimpleSAML_Error_Exception('Destination in logout message is wrong.');
 }
 
@@ -120,7 +130,23 @@ if ($message instanceof SAML2_LogoutResponse) {
 		SimpleSAML_Logger::warning('Logged out of ' . $numLoggedOut  . ' of ' . count($sessionIndexes) . ' sessions.');
 	}
 	
-	AccountLogin::signOutCallBackForIdps();	
+	$dst = $idpMetadata->getEndpointPrioritizedByBinding('SingleLogoutService', array(
+		SAML2_Const::BINDING_HTTP_REDIRECT,
+		SAML2_Const::BINDING_HTTP_POST)
+	);
+
+	if (!$binding instanceof SAML2_SOAP) {
+		$binding = SAML2_Binding::getBinding($dst['Binding']);
+		if (isset($dst['ResponseLocation'])) {
+			$dst = $dst['ResponseLocation'];
+		} else {
+			$dst = $dst['Location'];
+		}
+		$binding->setDestination($dst);
+	}
+	$lr->setDestination($dst);
+
+	AccountLogin::signOutCallBackForIdps();
 	
 	$binding->send($lr);
 } else {

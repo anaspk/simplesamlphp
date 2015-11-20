@@ -6,11 +6,9 @@
  * @author Mathias Meisfjordskar, University of Oslo.
  *         <mathias.meisfjordskar@usit.uio.no>
  * @package simpleSAMLphp
- * @version $Id$
  */
 
-$authStateId = $_REQUEST['AuthState'];
-$state = SimpleSAML_Auth_State::loadState($authStateId, sspmod_negotiate_Auth_Source_Negotiate::STAGEID);
+$state = SimpleSAML_Auth_State::loadState($_REQUEST['AuthState'], sspmod_negotiate_Auth_Source_Negotiate::STAGEID);
 
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $idpid = $metadata->getMetaDataCurrentEntityID('saml20-idp-hosted', 'metaindex');
@@ -21,7 +19,7 @@ if (isset($idpmeta['auth'])) {
 	if ($source === NULL)
 		throw new SimpleSAML_Error_BadRequest('Invalid AuthId "' . $idpmeta['auth'] . '" - not found.');
 
-	$session = SimpleSAML_Session::getInstance();
+	$session = SimpleSAML_Session::getSessionFromRequest();
 	$session->setData('negotiate:disable', 'session', FALSE, 24*60*60);
 	SimpleSAML_Logger::debug('Negotiate(retry) - session enabled, retrying.');
 	$source->authenticate($state);

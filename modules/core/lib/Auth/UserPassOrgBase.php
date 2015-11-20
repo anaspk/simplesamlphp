@@ -10,7 +10,6 @@
  *
  * @author Olav Morken, UNINETT AS.
  * @package simpleSAMLphp
- * @version $Id$
  */
 abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 
@@ -157,7 +156,7 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 
 		$url = SimpleSAML_Module::getModuleURL('core/loginuserpassorg.php');
 		$params = array('AuthState' => $id);
-		SimpleSAML_Utilities::redirect($url, $params);
+		\SimpleSAML\Utils\HTTP::redirectTrustedURL($url, $params);
 	}
 
 
@@ -275,5 +274,3 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 		return $source->getOrganizations();
 	}
 }
-
-?>

@@ -2,7 +2,6 @@
 /*
  * @author Andreas Åkre Solberg <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
  */
 class sspmod_metarefresh_ARP {
 
@@ -30,8 +29,6 @@ class sspmod_metarefresh_ARP {
 		$config = SimpleSAML_Configuration::getInstance();
 		include($config->getPathValue('attributemap', 'attributemap/') . $attributemap . '.php');
 		$this->attributes = $attributemap;
-		
-	#	print_r($attributemap); exit;
 	}
 
 	private function surround($name) {
@@ -65,7 +62,6 @@ class sspmod_metarefresh_ARP {
 		
 		
 		foreach($this->metadata AS $metadata) {
-			#$print_r($metadata); exit;
 			$xml .= $this->getEntryXML($metadata['metadata']);
 		}
 		

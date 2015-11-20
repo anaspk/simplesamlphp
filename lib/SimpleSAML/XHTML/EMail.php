@@ -5,7 +5,6 @@
  *
  * @author Andreas kre Solberg, UNINETT AS. <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
- * @version $Id$
  */
 class SimpleSAML_XHTML_EMail {
 
@@ -69,7 +68,7 @@ pre {
 		if ($this->subject == NULL) throw new Exception('EMail field [subject] is required and not set.');
 		if ($this->body == NULL) throw new Exception('EMail field [body] is required and not set.');
 		
-		$random_hash = SimpleSAML_Utilities::stringToHex(SimpleSAML_Utilities::generateRandomBytes(16));
+		$random_hash = bin2hex(openssl_random_pseudo_bytes(16));
 		
 		if (isset($this->from))
 			$this->headers[]= 'From: ' . $this->from;
@@ -166,5 +165,3 @@ Content-Transfer-Encoding: 8bit
 	}
 
 }
-
-?>
