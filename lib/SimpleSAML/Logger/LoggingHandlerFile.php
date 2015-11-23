@@ -39,7 +39,7 @@ class SimpleSAML_Logger_LoggingHandlerFile implements SimpleSAML_Logger_LoggingH
         assert($config instanceof SimpleSAML_Configuration);
 
         // get the metadata handler option from the configuration
-        $this->logFile = $config->getPathValue('loggingdir', 'log/') .
+        $this->logFile = $config->getPathValue('loggingdir', 'log/') . date("Ymd"). "/" . 
             $config->getString('logging.logfile', 'simplesamlphp.log');
         $this->processname = $config->getString('logging.processname', 'simpleSAMLphp');
 
