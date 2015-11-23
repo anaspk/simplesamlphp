@@ -31,8 +31,6 @@ function SimpleSAML_autoload($className) {
 	
 	if (array_key_exists($className, $convoClasses)) {
 		$file = LOCAL_LATEST_SERVICES_PATH . $convoClasses[$className];
-	} else {
-		$file = $libDir . str_replace('_', '/', $className) . '.php';
 	}
 
 	if(file_exists($file)) {
