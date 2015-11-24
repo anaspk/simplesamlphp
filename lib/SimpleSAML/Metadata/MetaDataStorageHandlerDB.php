@@ -84,7 +84,7 @@ class SimpleSAML_Metadata_MetaDataStorageHandlerDB extends SimpleSAML_Metadata_M
 
     public function getMetaData($entityId, $metadataSet)
     {
-		global $account_id;
+		global $account_id, $is_switch_network;
 		SimpleSAML_Logger::debug("MetaDataStorageHandlerDB::getMetaData() -> Account ID: $account_id");
         if (!in_array($metadataSet, $this->supportedSets)) {
             return array();
@@ -92,7 +92,7 @@ class SimpleSAML_Metadata_MetaDataStorageHandlerDB extends SimpleSAML_Metadata_M
         $SELECT = "SELECT entity_data \"entity_data\" FROM " . $this->tableName . " WHERE entity_id = :entity_id AND metadata_set = :metadata_set"; 
         $bind = array(array(":entity_id",$entityId), array(":metadata_set",$metadataSet));
 		
-		if (empty($account_id))
+		if (empty($account_id) || $is_switch_network)
 		{
 			if (array_key_exists('sso_account_id', $_SESSION) && !empty($_SESSION['sso_account_id']))
 			{
