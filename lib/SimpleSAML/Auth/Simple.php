@@ -223,7 +223,9 @@ class SimpleSAML_Auth_Simple {
 				$params[$state['ReturnStateParam']] = $stateID;
 			}
 
-			AccountLogin::signOutCallBackForIdps();
+			// logout from convo
+			$account_login = new AccountLogin();
+			$account_login->signOut(null, true);
 
 			\SimpleSAML\Utils\HTTP::redirectTrustedURL($state['ReturnTo'], $params);
 		}

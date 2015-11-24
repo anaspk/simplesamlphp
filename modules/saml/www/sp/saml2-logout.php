@@ -146,7 +146,9 @@ if ($message instanceof SAML2_LogoutResponse) {
 	}
 	$lr->setDestination($dst);
 
-	AccountLogin::signOutCallBackForIdps();
+	// logout from convo
+	$account_login = new AccountLogin();
+	$account_login->signOut(null, true);
 	
 	$binding->send($lr);
 } else {
