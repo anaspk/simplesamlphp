@@ -47,7 +47,7 @@ $config = array(
 		'entityID' => "convo.com",//NULL,
 
 		//'RelayState' => 'https://app.convo.com/app/saml2/sso/idp_initated_sso.php',
-		'RelayState' => '/app/saml2/sso/idp_initated_sso.php',
+		//'RelayState' => '/app/saml2/sso/idp_initated_sso.php',
 		// The entity ID of the IdP this should SP should contact.
 		// Can be NULL/unset, in which case the user will be shown a list of available IdPs.
 		'idp' => NULL,
