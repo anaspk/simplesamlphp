@@ -23,7 +23,7 @@ if (!defined('LOCAL_LATEST_SERVICES_PATH')) define('LOCAL_LATEST_SERVICES_PATH',
  *
  * @param $className  The name of the class.
  */
-function SimpleSAML_autoload($className) {
+function SimpleSAML_autoload_old($className) {
 
 	$convoClasses = array(
 		'AccountLogin' => 'accounts/AccountLogin.php',
@@ -33,12 +33,12 @@ function SimpleSAML_autoload($className) {
 		$file = LOCAL_LATEST_SERVICES_PATH . $convoClasses[$className];
 	}
 
-	if(file_exists($file)) {
+	if(isset($file) && file_exists($file)) {
 		require_once($file);
 	}
 }
 
-spl_autoload_register('SimpleSAML_autoload');
+spl_autoload_register('SimpleSAML_autoload_old');
 
 // Newer autoloader of SSP follows.
 
