@@ -82,17 +82,15 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler
             throw new SimpleSAML_Error_Exception('Cannot create new session - headers already sent.');
         }
 
-        // generate new (secure) session id
-        $sessionId = bin2hex(openssl_random_pseudo_bytes(16));
-        SimpleSAML_Session::createSession($sessionId);
-
         if (session_id() !== '') {
-            // session already started, close it
-            session_write_close();
-        }
-
-        session_id($sessionId);
-        session_start();
+			$sessionId = session_id();
+        } else {
+			$sessionId = bin2hex(openssl_random_pseudo_bytes(16));
+			session_id($sessionId);
+			session_start();
+		}
+		
+		SimpleSAML_Session::createSession($sessionId);
 
         return session_id();
     }
@@ -118,7 +116,9 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler
                 throw new SimpleSAML_Error_Exception('Session start with secure cookie not allowed on http.');
             }
 
+            SimpleSAML_Logger::debug('SESSIONSTART 2, session_id = ' . session_id());
             session_start();
+			SimpleSAML_Logger::debug('SESSIONSTART 2 After starting, session_id = ' . session_id());
         }
 
         return session_id();
